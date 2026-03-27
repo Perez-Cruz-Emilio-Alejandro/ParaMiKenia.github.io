@@ -161,98 +161,101 @@ const diapositivas = [
     { tipo: 'soloTexto', contenido: 'Te amo' }
 ];
 
+/* --- VARIABLES DE CONTROL --- */
 let indiceActual = 0;
 const musicMia = document.getElementById('bg-music');
 const musicAkaza = document.getElementById('music-akaza');
 const stage = document.getElementById('narrativa-stage');
 let musicaIniciada = false;
+
+/* --- FUNCIÓN DE RENDERIZADO --- */
 function render(index) {
     const d = diapositivas[index];
-    stage.innerHTML = d.tipo === 'soloTexto' 
-        ? `<h1 class="texto-centrado">${d.contenido}</h1>`
-        : `<div class="diapositiva-hibrida"><img src="${d.imagenUrl}"><p class="texto-lateral">${d.texto}</p></div>`;
+    if (d.tipo === 'soloTexto') {
+        stage.innerHTML = `<h1 class="texto-centrado">${d.contenido}</h1>`;
+    } else {
+        stage.innerHTML = `
+            <div class="diapositiva-hibrida">
+                <img src="${d.imagenUrl}">
+                <p class="texto-lateral">${d.texto}</p>
+            </div>`;
+    }
 }
 
-// Inicializar
+// Inicializar primera diapositiva
 render(0);
 setTimeout(() => { 
     stage.style.opacity = 1; 
     stage.style.transform = "translateY(0)";
 }, 500);
 
-// Control de Clics
+/* --- MOTOR DE CLICS Y LÓGICA DE AUDIO --- */
 document.addEventListener("click", () => {
-    // Solo actuamos si no hemos llegado al final del array
+    // 1. DESBLOQUEO DE AUDIO PARA MÓVILES (Solo el primer clic)
+    if (!musicaIniciada) {
+        if (musicMia) {
+            musicMia.volume = 0.4;
+            musicMia.play().catch(e => console.log("Esperando interacción..."));
+        }
+        
+        // Desbloqueamos Akaza en silencio para evitar que suenen juntas
+        if (musicAkaza) {
+            musicAkaza.volume = 0;
+            musicAkaza.play().then(() => {
+                musicAkaza.pause();
+                musicAkaza.currentTime = 0;
+            }).catch(() => {});
+        }
+        musicaIniciada = true;
+    }
+
+    // 2. AVANCE DE DIAPOSITIVAS
     if (indiceActual < diapositivas.length - 1) {
         indiceActual++;
         
-        // 1. Desvanecemos el texto actual (Fade Out)
+        // Efecto Fade Out
         stage.style.opacity = 0;
         stage.style.transform = "translateY(-10px)";
 
         setTimeout(() => {
             const data = diapositivas[indiceActual];
             
-            // INICIO DE MÚSICA (Se activa al primer clic)
-            if (!musicaIniciada) {
-        musicMia.play().then(() => {
-            musicMia.volume = 0.4;
-            musicaIniciada = true;
-        }).catch(e => console.log("Esperando interacción..."));
-
-        // Pre-cargamos el de Akaza en silencio para que ya tenga permiso después
-        musicAkaza.play().then(() => {
-            musicAkaza.pause();
-            musicAkaza.currentTime = 0;
-        }).catch(() => {});
-    }
-
-            // TRANSICIÓN DE CANCIÓN (Si la diapositiva tiene 'cambioMusica')
-            // TRANSICIÓN DE CANCIÓN (Versión Depurada)
-// TRANSICIÓN DE CANCIÓN (Versión Reforzada)
-if (data.cambioMusica === 'akaza') {
-    console.log("Ejecutando cambio de track...");
-    
-    let fadeOut = setInterval(() => {
-        if (musicMia && musicMia.volume > 0.05) {
-            musicMia.volume -= 0.05;
-        } else {
-            clearInterval(fadeOut);
-            if(musicMia) musicMia.pause();
-
-            if (musicAkaza) {
-                musicAkaza.volume = 0;
-                musicAkaza.currentTime = 0; // REINICIAR TRACK
+            // LÓGICA DE TRANSICIÓN DE CANCIÓN
+            if (data.cambioMusica === 'akaza') {
+                console.log("Iniciando transición de audio...");
                 
-                // Forzamos la carga antes de tocar
-                musicAkaza.load(); 
-                
-                musicAkaza.play().then(() => {
-                    console.log("Akaza sonando correctamente");
-                    let fadeIn = setInterval(() => {
-                        if (musicAkaza.volume < 0.5) {
-                            musicAkaza.volume += 0.05;
-                        } else {
-                            clearInterval(fadeIn);
+                let fadeOut = setInterval(() => {
+                    if (musicMia && musicMia.volume > 0.05) {
+                        musicMia.volume -= 0.05;
+                    } else {
+                        clearInterval(fadeOut);
+                        if(musicMia) musicMia.pause();
+
+                        if (musicAkaza) {
+                            musicAkaza.volume = 0;
+                            musicAkaza.load(); // Asegura carga fresca en GitHub
+                            musicAkaza.play().then(() => {
+                                let fadeIn = setInterval(() => {
+                                    if (musicAkaza.volume < 0.5) {
+                                        musicAkaza.volume += 0.05;
+                                    } else {
+                                        clearInterval(fadeIn);
+                                    }
+                                }, 100);
+                            }).catch(e => {
+                                // Rescate por si el navegador bloquea
+                                musicAkaza.volume = 0.5;
+                                musicAkaza.play();
+                            });
                         }
-                    }, 100);
-                }).catch(e => {
-                    console.error("Error de reproducción:", e);
-                    // Intento de rescate: si falla, subimos volumen de golpe
-                    musicAkaza.volume = 0.5;
-                    musicAkaza.play();
-                });
+                    }
+                }, 150);
             }
-        }
-    }, 100);
-}
 
-            // 2. Cambiamos el contenido en pantalla
+            // Actualizar contenido y Fade In
             render(indiceActual);
-            
-            // 3. Mostramos el nuevo texto (Fade In)
             stage.style.opacity = 1;
             stage.style.transform = "translateY(0)";
-        }, 1000); // Esperamos 1s para que el texto anterior desaparezca bien
+        }, 1000); 
     }
 });
